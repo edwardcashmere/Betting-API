@@ -1,18 +1,13 @@
 defmodule Challenge do
-  @moduledoc """
-  Documentation for `Challenge`.
-  """
+  @moduledoc false
+  use Application
 
-  @doc """
-  Hello world.
+  def start(_, _) do
+    Challenge.Supervisor.start_link([])
+  end
 
-  ## Examples
-
-      iex> Challenge.hello()
-      :world
-
-  """
-  def hello do
-    :world
+  @spec start :: GenServer.server()
+  def start do
+    DynamicSupervisor.start_child(Challenge.DynamicSupervisor, {Challenge.Operator, []})
   end
 end
