@@ -24,6 +24,8 @@ defmodule Challenge.Mnesia.Server do
     case Mnesia.create_table(Challenge.User, attributes: [:name, :amount, :currency])
          |> IO.inspect() do
       {:atomic, :ok} ->
+        Mnesia.add_table_index(Challenge.User, :win_transaction_id)
+        Mnesia.add_table_index(Challenge.User, :bet_transaction_id)
         IO.puts("table created")
         {:noreply, state}
 
@@ -62,6 +64,17 @@ defmodule Challenge.Mnesia.Server do
 
   def create_user(_, _) do
     :ok
+  end
+
+  @doc """
+  adding successfull transaction_ids from bets or wins
+  to table
+  """
+  def add_transaction_uuid() do
+    # t_fn =fn -> Mnesia.write({Challenge.User, name, amount, @currency})) end
+  end
+
+  def transaction_id_exist?() do
   end
 
   @spec get_all_users :: :no_users_found | :error | any()

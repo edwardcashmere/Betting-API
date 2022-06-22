@@ -20,10 +20,15 @@ defmodule Challenge.Operator do
     GenServer.cast(server, {:create_users, users})
   end
 
-  # @spec bet(server_pid :: GenServer.server(), map()) :: bet_or_win
-  # def bet(server_pid, body) do
-  #   GenServer.call(server_pid, {:bet, body})
-  # end
+  @spec process_bet(server_pid :: GenServer.server(), map()) :: bet_or_win
+  def process_bet(server_pid, body) do
+    GenServer.call(server_pid, {:bet, body})
+  end
+
+  @spec process_win(server_pid :: GenServer.server(), body :: map()) :: bet_or_win
+  def process_win(server_pid, body) do
+    GenServer.call(server_pid, {:win, body})
+  end
 
   # def win(server_pid, GenServer)
 
@@ -44,5 +49,13 @@ defmodule Challenge.Operator do
   def handle_cast({:create_users, users}, state) do
     :ok = Enum.each(users, fn user -> Server.create_user(user) end)
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_call({:bet, body}, state) do
+  end
+
+  @impl true
+  def handle_call({:win, body}, state) do
   end
 end

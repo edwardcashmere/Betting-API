@@ -29,11 +29,11 @@ defmodule Challenge do
 
   @spec bet(server_pid :: GenServer.server(), body :: map()) :: bet_or_win()
   def bet(server_pid, body) do
-    Challenge.Operator
+    Challenge.Operator.process_bet(server_pid, body)
   end
 
   @spec win(server_pid :: GenServer.server(), body :: map()) :: bet_or_win()
   def win(server_pid, body) do
-    Challenge.Operator
+    Challenge.Operator.win()
   end
 end
