@@ -15,41 +15,31 @@ defmodule Challenge.Mnesia.Server do
   def init(_opts) do
     Mnesia.create_schema([Node.self()])
     Mnesia.start()
-    send(self(), :create_table)
+    send(self(), :create_tables)
     {:ok, %{}}
   end
 
   @impl true
-  def handle_info(:create_table, state) do
-    case Mnesia.create_table(Challenge.User, attributes: [:name, :amount, :currency])
-         |> IO.inspect() do
-      {:atomic, :ok} ->
-        Mnesia.add_table_index(Challenge.User, :win_transaction_id)
-        Mnesia.add_table_index(Challenge.User, :bet_transaction_id)
-        IO.puts("table created")
-        {:noreply, state}
+  def handle_info(:create_tables, state) do
+    create_tables()
+    Mnesia.add_table_index(Challenge.Bet_Win, :status)
+    Mnesia.add_table_index(Challenge.Bet_Win, :name)
+    {:noreply, state}
+  end
 
-      {:aborted, {:already_exists, _, _}} ->
-        Logger.info("Failed to create ,mnsesia table")
-        {:noreply, state}
-
-      {:aborted, {:already_exists, _}} ->
-        IO.puts("Failed to create")
-        IO.inspect(Mnesia.system_info(:tables))
-        {:noreply, state}
-
-      _ ->
-        raise "Failed to create mnesia tables something went wrong"
-    end
+  def create_tables() do
+    add_table(Challenge.User, attributes: [:name, :amount, :currency])
+    # add status
+    add_table(Challenge.Bet_Win, attributes: [:transaction_bet_uuid, :name, :status])
   end
 
   @spec create_user(name :: String.t(), amount :: number()) :: :ok
   def create_user(name, amount \\ 100_00)
 
-  def create_user(name, amount) when is_binary(name) and not is_nil(name) do
+  def create_user(name, amount) when byte_size(name) > 0 do
     t_fn = fn -> Mnesia.write({Challenge.User, name, amount, @currency}) end
 
-    with :does_not_exist <- get_user(name) |> IO.inspect(),
+    with :does_not_exist <- get_user(name),
          {:ok, _result} <- run_transaction(t_fn) do
       IO.puts("user created")
       :ok
@@ -70,11 +60,29 @@ defmodule Challenge.Mnesia.Server do
   adding successfull transaction_ids from bets or wins
   to table
   """
-  def add_transaction_uuid() do
-    # t_fn =fn -> Mnesia.write({Challenge.User, name, amount, @currency})) end
+  @spec add_transaction_uuid(trans_uuid :: binary(), name :: binary(), status :: boolean()) :: :ok | :error
+  def add_transaction_uuid(trans_uuid, name, status) do
+    t_fn = fn -> Mnesia.write({Challenge.Bet_Win, trans_uuid, name, status}) end
+
+    case run_transaction(t_fn) do
+      {:ok, results} ->
+        IO.inspect(results)
+        :ok
+
+      {:error, _error} ->
+        :error
+    end
   end
 
-  def transaction_id_exist?() do
+  @spec transaction_id_exist?(trans_uuid :: binary(), name :: binary()) :: boolean() | :error
+  def transaction_id_exist?(trans_uuid, name) do
+    t_fn = fn -> Mnesia.match_object({Challenge.Bet_Win, trans_uuid, name, :_}) end
+
+    case run_transaction(t_fn) do
+      {:ok, [{Challenge.Bet_Win, ^trans_uuid, ^name, _status}]} -> true
+      {:ok, []} -> false
+      {:error, _reason} -> :error
+    end
   end
 
   @spec get_all_users :: :no_users_found | :error | any()
@@ -84,7 +92,7 @@ defmodule Challenge.Mnesia.Server do
     case run_transaction(t_fn) do
       {:ok, []} -> :no_users_found
       {:ok, results} -> IO.inspect(results)
-      {:error, _error} -> :error
+      {:error, _reason} -> :error
     end
   end
 
@@ -95,11 +103,35 @@ defmodule Challenge.Mnesia.Server do
   def get_user(name) do
     t_fn = fn -> Mnesia.read(Challenge.User, name) end
 
-    case run_transaction(t_fn) |> IO.inspect() do
+    case run_transaction(t_fn)  do
       {:ok, [{_table_name, name, amount, currency}]} -> {:ok, name, amount, currency}
       {:ok, []} -> :does_not_exist
-      error -> {:error, error}
+      {:error, _reason} -> :error
     end
+  end
+
+  @spec update_user(name :: String.t(), amount :: number()) :: :failed_to_update_user | :error | :ok
+  def update_user(name, amount) do
+    t_fn = fn -> Mnesia.write({Challenge.User, name, amount, @currency}) end
+
+    case run_transaction(t_fn) do
+      {:ok, [{_table_name, _name, _amount, _currency}]} -> :ok
+      {:ok, []} -> :failed_to_update_user
+      {:error, _error} -> :error
+    end
+
+  end
+
+  @spec get_all_trans_ids_with_criteria() :: [{binary(), String.t(), boolean()}]
+  def get_all_trans_ids_with_criteria() do
+    t_fn = fn -> Mnesia.match_object({Challenge.Bet_Win, :_, :_, :_}) end
+
+    case run_transaction(t_fn) do
+      {:ok, []} -> :no_transaction_ids_found
+      {:ok, results} -> IO.inspect(results)
+      {:error, _reason} -> :error
+    end
+
   end
 
   defp run_transaction(t_fn) do
@@ -111,4 +143,22 @@ defmodule Challenge.Mnesia.Server do
         {:error, reason}
     end
   end
+
+  defp add_table(name, attrs) do
+    case Mnesia.create_table(name, attrs) |> IO.inspect() do
+      {:atomic, :ok} ->
+        IO.puts("Table created")
+        :ok
+
+      {:aborted, {:already_exists, _}} ->
+        :ok
+
+      {:aborted, {:already_exists, _, _}} ->
+        :ok
+
+      _ ->
+        :error
+    end
+  end
+
 end
