@@ -2,6 +2,9 @@ defmodule Challenge do
   @moduledoc false
   use Application
 
+  # using mnesia to manage state has un-intended side effects as highlighted here
+  # https://elixirforum.com/t/unexpected-behaviour-with-mnesia-not-actually-durable/19319
+
   @bet "bet"
   @win "win"
   @type bet_or_win :: %{
@@ -47,17 +50,4 @@ defmodule Challenge do
     |> Task.await(:infinity)
   end
 
-  # def send_request(request_type, body) do
-  #   pid = spawn (fn -> bet_win_request() end)
-  #   IO.inspect(pid, label: "handler process")
-  #   {:ok, pid} = DynamicSupervisor.start_child(Challenge.DynamicSupervisor, {Challenge.BetWinServer, [pid,request_type, body]}) |> IO.inspect(label: "supervisor pid")
-  #   pid
-  # end
-
-  # def bet_win_request() do
-  #   receive do
-  #     {:response, response} ->
-  #          response
-  #   end
-  # end
 end

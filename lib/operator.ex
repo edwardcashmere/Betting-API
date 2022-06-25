@@ -37,6 +37,7 @@ defmodule Challenge.Operator do
 
   @impl true
   def handle_cast({:create_users, users}, state) do
+
     users
     |> Enum.filter(fn user -> is_binary(user) end)
     |> Enum.each(fn user ->
@@ -56,36 +57,34 @@ defmodule Challenge.Operator do
       # then get the user on request
       # add win to amount and update user
       # send response back to caller
-      IO.puts("Processing.......")
-
+      body = body
       with false <- check_trans_id?(body[:transaction_uuid], "win"),
            {:ok, name, amount, _currency} <- get_user(body[:user]),
-           {:ok, new_amount} <- calculate_new_amount(amount, body[:amount]),
+           {:ok, new_amount} <- calculate_new_amount(amount,"win" ,body[:amount]),
            :ok <- update_user(name, new_amount),
            :ok <- update_transactions_table(body[:transaction_uuid], "win", true),
-           {:ok, response} <- build_response(name, "RS_OK", new_amount) do
-        IO.puts("I got a response back")
+           {:ok, response} <- build_response(name, "RS_OK", new_amount, body[:request_uuid]) do
 
         GenServer.reply(from, response)
       else
         true ->
           case get_user(body[:user]) do
             {:ok, name, amount, _currency} ->
-              {:ok, response} = build_response(name, "RS_ERROR_DUPLICATE_TRANSACTION", amount)
+              {:ok, response} = build_response(name, "RS_ERROR_DUPLICATE_TRANSACTION", amount, body[:request_uuid])
               GenServer.reply(from, response)
 
             _ ->
-              {:ok, response} = build_response("UKNOWN", "RS_ERROR_DUPLICATE_TRANSACTION", 0)
+              {:ok, response} = build_response("UNKNOWN", "RS_ERROR_UNKNOWN", 0, body[:request_uuid])
               GenServer.reply(from, response)
           end
 
-        :does_not_exit ->
-          {:ok, response} = build_response("UKNOWN", "RS_ERROR_INVALID_PARTNER", 0)
+        :does_not_exist ->
+          {:ok, response} = build_response("UNKNOWN", "RS_ERROR_UNKNOWN", 0, body[:request_uuid])
           GenServer.reply(from, response)
 
         _ ->
           {:ok, name, amount, _currency} = get_user(body[:user])
-          {:ok, response} = build_response(name, "RS_ERROR_UNKNOWN", amount)
+          {:ok, response} = build_response(name, "RS_ERROR_UNKNOWN", amount, body[:request_uuid])
           GenServer.reply(from, response)
       end
     end)
@@ -101,41 +100,40 @@ defmodule Challenge.Operator do
       # confirm they have the amount to make the bet other return early
       # deduct amount from user and update user from mnesia
       # send response back to caller
-      IO.puts("Processing.......")
 
+      body = body
       with false <- check_trans_id?(body[:transaction_uuid], "bet"),
            {:ok, name, amount, _currency} <- get_user(body[:user]),
            {:ok, true} <- check_amount(amount, body[:amount]),
-           {:ok, new_amount} <- calculate_new_amount(amount, -body[:amount]),
+           {:ok, new_amount} <- calculate_new_amount(amount,"bet" ,body[:amount]),
            :ok <- update_user(name, new_amount),
            :ok <- update_transactions_table(body[:transaction_uuid], "bet", true),
-           {:ok, response} <- build_response(name, "RS_OK", new_amount) do
-        IO.puts("I got a response back")
+           {:ok, response} <- build_response(name, "RS_OK", new_amount, body[:request_uuid]) do
         GenServer.reply(from, response)
       else
         true ->
           case get_user(body[:user]) do
             {:ok, name, amount, _currency} ->
-              {:ok, response} = build_response(name, "RS_ERROR_DUPLICATE_TRANSACTION", amount)
+              {:ok, response} = build_response(name, "RS_ERROR_DUPLICATE_TRANSACTION", amount, body[:request_uuid])
               GenServer.reply(from, response)
 
             _ ->
-              {:ok, response} = build_response("UKNOWN", "RS_ERROR_DUPLICATE_TRANSACTION", 0)
+              {:ok, response} = build_response("UKNOWN", "RS_ERROR_UNKNOWN", 0, body[:request_uuid])
               GenServer.reply(from, response)
           end
 
-        :does_not_exit ->
-          {:ok, response} = build_response("UKNOWN", "RS_ERROR_INVALID_PARTNER", 0)
+        :does_not_exist ->
+          {:ok, response} = build_response("UNKNOWN", "RS_ERROR_UNKNOWN", 0, body[:request_uuid])
           GenServer.reply(from, response)
 
         {:ok, false} ->
           {:ok, name, amount, _currency} = get_user(body[:user])
-          {:ok, response} = build_response(name, "RS_ERROR_NOT_ENOUGH_MONEY", amount)
+          {:ok, response} = build_response(name, "RS_ERROR_NOT_ENOUGH_MONEY", amount, body[:request_uuid])
           GenServer.reply(from, response)
 
         _ ->
           {:ok, name, amount, _currency} = get_user(body[:user])
-          {:ok, response} = build_response(name, "RS_ERROR_UNKNOWN", amount)
+          {:ok, response} = build_response(name, "RS_ERROR_UNKNOWN", amount, body[:request_uuid])
           GenServer.reply(from, response)
       end
     end)
@@ -169,23 +167,40 @@ defmodule Challenge.Operator do
     Server.update_user(name, amount)
   end
 
-  defp build_response(user, status, new_amount) do
+  defp build_response(user, status, new_amount, request_id) do
     {:ok,
      %{
        user: user,
        status: status,
        currency: "USD",
-       balance: new_amount
+       balance: new_amount,
+       request_uuid: request_id
      }}
   end
 
-  defp calculate_new_amount(amount, bet_win) do
-    IO.inspect(amount + bet_win, label: "this is a bet or win")
-    IO.inspect(bet_win, label: "this is a bet or win")
-    {:ok, amount + bet_win}
+  defp calculate_new_amount(amount, name,bet_win) do
+    case name do
+      "bet" ->
+        {:ok, amount - absolute_value(bet_win)}
+      "win" ->
+        {:ok, amount + absolute_value(bet_win)
+      }
+    end
   end
 
   defp check_amount(user_amount, bet) do
     {:ok, user_amount >= bet}
   end
+
+  @spec absolute_value(amount :: number()) :: amount :: number()
+  def absolute_value(amount) when amount > 0 do
+    amount
+  end
+
+  def absolute_value(amount) do
+    -1 * amount
+  end
+
+  :math
+
 end

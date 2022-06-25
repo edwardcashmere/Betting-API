@@ -16,6 +16,8 @@ defmodule Challenge.Mnesia.Server do
     Mnesia.create_schema([Node.self()])
     Mnesia.start()
     send(self(), :create_tables)
+    Mnesia.wait_for_tables([Challenge.User,Challenge.Bet_Win], 5000)
+
     {:ok, %{}}
   end
 
@@ -41,7 +43,6 @@ defmodule Challenge.Mnesia.Server do
 
     with :does_not_exist <- get_user(name),
          {:ok, _result} <- run_transaction(t_fn) do
-      IO.puts("user created")
       :ok
     else
       {:ok, _name, _amount, _currency} ->
@@ -67,7 +68,6 @@ defmodule Challenge.Mnesia.Server do
 
     case run_transaction(t_fn) do
       {:ok, results} ->
-        IO.inspect(results)
         :ok
 
       {:error, _error} ->
@@ -86,13 +86,13 @@ defmodule Challenge.Mnesia.Server do
     end
   end
 
-  @spec get_all_users :: :no_users_found | :error | any()
+  @spec get_all_users :: :no_users_found | :error | [{name :: String.t(), amount :: number(), currency :: String.t()}]
   def get_all_users() do
     t_fn = fn -> Mnesia.match_object({Challenge.User, :_, :_, :_}) end
 
     case run_transaction(t_fn) do
       {:ok, []} -> :no_users_found
-      {:ok, results} -> IO.inspect(results)
+      {:ok, results} -> results
       {:error, _reason} -> :error
     end
   end
@@ -115,7 +115,7 @@ defmodule Challenge.Mnesia.Server do
   def update_user(name, amount) do
     t_fn = fn -> Mnesia.write({Challenge.User, name, amount, @currency}) end
 
-    case run_transaction(t_fn) |> IO.inspect(label: "updated user") do
+    case run_transaction(t_fn) do
       {:ok, _result} -> :ok
       {:error, _error} -> :error
     end
@@ -127,9 +127,13 @@ defmodule Challenge.Mnesia.Server do
 
     case run_transaction(t_fn) do
       {:ok, []} -> :no_transaction_ids_found
-      {:ok, results} -> IO.inspect(results)
+      {:ok, results} -> results
       {:error, _reason} -> :error
     end
+  end
+
+  def dummy_func() do
+    Mnesia.system_info()
   end
 
   defp run_transaction(t_fn) do
@@ -143,9 +147,8 @@ defmodule Challenge.Mnesia.Server do
   end
 
   defp add_table(name, attrs) do
-    case Mnesia.create_table(name, attrs) |> IO.inspect() do
+    case Mnesia.create_table(name, attrs)do
       {:atomic, :ok} ->
-        IO.puts("Table created")
         :ok
 
       {:aborted, {:already_exists, _}} ->

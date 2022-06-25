@@ -11,7 +11,6 @@ defmodule Challenge.BetWinServer do
 
   @impl true
   def init(%{opts: opts, request_type: request_type, caller: caller}) do
-    IO.puts("I got started")
     send(self(), {String.to_atom(request_type), opts})
     {:ok, %{opts: opts, caller: caller}}
   end
@@ -23,7 +22,6 @@ defmodule Challenge.BetWinServer do
     # confirm they have the amount to make the bet other return early
     # deduct amount from user and update user from mnesia
     # send response back to caller
-    IO.puts("Processing.......")
 
     with false <- check_trans_id?(body[:transaction_uuid], "bet"),
          {:ok, name, amount, _currency} <- get_user(body[:user]),
@@ -32,7 +30,6 @@ defmodule Challenge.BetWinServer do
          :ok <- update_user(name, new_amount),
          :ok <- update_transactions_table(body[:transaction_uuid], "bet", true),
          {:ok, response} <- build_response(name, "RS_OK", new_amount) do
-      IO.puts("I got a response back")
       send(caller, {:response, response})
       exit(:normal)
     else
@@ -75,7 +72,6 @@ defmodule Challenge.BetWinServer do
     # then get the user on request
     # add win to amount and update user
     # send response back to caller
-    IO.puts("Processing.......")
 
     with false <- check_trans_id?(body[:transaction_uuid], "win"),
          {:ok, name, amount, _currency} <- get_user(body[:user]),
@@ -83,7 +79,6 @@ defmodule Challenge.BetWinServer do
          :ok <- update_user(name, new_amount),
          :ok <- update_transactions_table(body[:transaction_uuid], "win", true),
          {:ok, response} <- build_response(name, "RS_OK", new_amount) do
-      IO.puts("I got a response back")
 
       send(caller, {:response, response})
       exit(:normal)
