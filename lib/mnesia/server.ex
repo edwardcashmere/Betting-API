@@ -34,7 +34,7 @@ defmodule Challenge.Mnesia.Server do
   end
 
   @spec create_user(name :: String.t(), amount :: number()) :: :ok
-  def create_user(name, amount \\ 100_00)
+  def create_user(name, amount \\ 100_000)
 
   def create_user(name, amount) when byte_size(name) > 0 do
     t_fn = fn -> Mnesia.write({Challenge.User, name, amount, @currency}) end
@@ -60,7 +60,8 @@ defmodule Challenge.Mnesia.Server do
   adding successfull transaction_ids from bets or wins
   to table
   """
-  @spec add_transaction_uuid(trans_uuid :: binary(), name :: binary(), status :: boolean()) :: :ok | :error
+  @spec add_transaction_uuid(trans_uuid :: binary(), name :: binary(), status :: boolean()) ::
+          :ok | :error
   def add_transaction_uuid(trans_uuid, name, status) do
     t_fn = fn -> Mnesia.write({Challenge.Bet_Win, trans_uuid, name, status}) end
 
@@ -103,23 +104,21 @@ defmodule Challenge.Mnesia.Server do
   def get_user(name) do
     t_fn = fn -> Mnesia.read(Challenge.User, name) end
 
-    case run_transaction(t_fn)  do
+    case run_transaction(t_fn) do
       {:ok, [{_table_name, name, amount, currency}]} -> {:ok, name, amount, currency}
       {:ok, []} -> :does_not_exist
       {:error, _reason} -> :error
     end
   end
 
-  @spec update_user(name :: String.t(), amount :: number()) :: :failed_to_update_user | :error | :ok
+  @spec update_user(name :: String.t(), amount :: number()) :: :ok | :error
   def update_user(name, amount) do
     t_fn = fn -> Mnesia.write({Challenge.User, name, amount, @currency}) end
 
-    case run_transaction(t_fn) do
-      {:ok, [{_table_name, _name, _amount, _currency}]} -> :ok
-      {:ok, []} -> :failed_to_update_user
+    case run_transaction(t_fn) |> IO.inspect(label: "updated user") do
+      {:ok, _result} -> :ok
       {:error, _error} -> :error
     end
-
   end
 
   @spec get_all_trans_ids_with_criteria() :: [{binary(), String.t(), boolean()}]
@@ -131,7 +130,6 @@ defmodule Challenge.Mnesia.Server do
       {:ok, results} -> IO.inspect(results)
       {:error, _reason} -> :error
     end
-
   end
 
   defp run_transaction(t_fn) do
@@ -160,5 +158,4 @@ defmodule Challenge.Mnesia.Server do
         :error
     end
   end
-
 end
