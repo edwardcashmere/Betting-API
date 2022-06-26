@@ -67,6 +67,13 @@ defmodule ChallengeTest do
     assert 1000 = Operator.absolute_value(-1000)
   end
 
+  test "calculate amount" do
+    assert {:ok, 10_000} = Operator.calculate_new_amount(100_000, "bet", 90_000)
+    assert {:ok, 10_000} = Operator.calculate_new_amount(100_000, "bet", -90_000)
+    assert {:ok, 205_000} = Operator.calculate_new_amount(100_000, "win", 105_000)
+    assert {:ok, 205_000} = Operator.calculate_new_amount(100_000, "win", -105_000)
+  end
+
   # test bet with valid payload
   # test bet with valid payload -ve amount
   # test bet with duplicate trans_id

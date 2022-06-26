@@ -66,7 +66,7 @@ defmodule Challenge.Mnesia.Server do
     t_fn = fn -> Mnesia.write({Challenge.Bet_Win, trans_uuid, name, status}) end
 
     case run_transaction(t_fn) do
-      {:ok, results} ->
+      {:ok, _results} ->
         :ok
 
       {:error, _error} ->
@@ -89,7 +89,7 @@ defmodule Challenge.Mnesia.Server do
   @spec get_all_users ::
           :no_users_found
           | :error
-          | [{name :: String.t(), amount :: number(), currency :: String.t()}]
+          | [{String.t(), number(), String.t()}]
   def get_all_users() do
     t_fn = fn -> Mnesia.match_object({Challenge.User, :_, :_, :_}) end
 
@@ -101,7 +101,7 @@ defmodule Challenge.Mnesia.Server do
   end
 
   @spec get_user(name :: String.t()) ::
-          {:ok, name :: String.t(), amount :: number(), currency :: String.t()}
+          {:ok, String.t(), number(), String.t()}
           | :error
           | :does_not_exit
   def get_user(name) do
