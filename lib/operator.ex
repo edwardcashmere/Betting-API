@@ -37,7 +37,6 @@ defmodule Challenge.Operator do
 
   @impl true
   def handle_cast({:create_users, users}, state) do
-
     users
     |> Enum.filter(fn user -> is_binary(user) end)
     |> Enum.each(fn user ->
@@ -58,23 +57,56 @@ defmodule Challenge.Operator do
       # add win to amount and update user
       # send response back to caller
       body = body
-      with false <- check_trans_id?(body[:transaction_uuid], "win"),
+
+      with :transaction_found <-
+             Server.get_transaction_id(body[:reference_transaction_uuid], "bet"),
+           :transaction_does_not_exist <-
+             Server.get_transaction_id(body[:transaction_uuid], "win"),
            {:ok, name, amount, _currency} <- get_user(body[:user]),
-           {:ok, new_amount} <- calculate_new_amount(amount,"win" ,body[:amount]),
+           {:ok, new_amount} <-
+             calculate_new_amount(amount, "win", body[:amount]),
            :ok <- update_user(name, new_amount),
            :ok <- update_transactions_table(body[:transaction_uuid], "win", true),
            {:ok, response} <- build_response(name, "RS_OK", new_amount, body[:request_uuid]) do
-
         GenServer.reply(from, response)
       else
-        true ->
+        :transaction_found ->
           case get_user(body[:user]) do
             {:ok, name, amount, _currency} ->
-              {:ok, response} = build_response(name, "RS_ERROR_DUPLICATE_TRANSACTION", amount, body[:request_uuid])
+              {:ok, response} =
+                build_response(
+                  name,
+                  "RS_ERROR_DUPLICATE_TRANSACTION",
+                  amount,
+                  body[:request_uuid]
+                )
+
               GenServer.reply(from, response)
 
             _ ->
-              {:ok, response} = build_response("UNKNOWN", "RS_ERROR_UNKNOWN", 0, body[:request_uuid])
+              {:ok, response} =
+                build_response("UNKNOWN", "RS_ERROR_UNKNOWN", 0, body[:request_uuid])
+
+              GenServer.reply(from, response)
+          end
+
+        :transaction_does_not_exist ->
+          case get_user(body[:user]) do
+            {:ok, name, amount, _currency} ->
+              {:ok, response} =
+                build_response(
+                  name,
+                  "RS_ERROR_TRANSACTION_DOES_NOT_EXIST",
+                  amount,
+                  body[:request_uuid]
+                )
+
+              GenServer.reply(from, response)
+
+            _ ->
+              {:ok, response} =
+                build_response("UNKNOWN", "RS_ERROR_UNKNOWN", 0, body[:request_uuid])
+
               GenServer.reply(from, response)
           end
 
@@ -102,23 +134,34 @@ defmodule Challenge.Operator do
       # send response back to caller
 
       body = body
-      with false <- check_trans_id?(body[:transaction_uuid], "bet"),
+
+      with :transaction_does_not_exist <-
+             Server.get_transaction_id(body[:transaction_uuid], "bet"),
            {:ok, name, amount, _currency} <- get_user(body[:user]),
            {:ok, true} <- check_amount(amount, body[:amount]),
-           {:ok, new_amount} <- calculate_new_amount(amount,"bet" ,body[:amount]),
+           {:ok, new_amount} <- calculate_new_amount(amount, "bet", body[:amount]),
            :ok <- update_user(name, new_amount),
            :ok <- update_transactions_table(body[:transaction_uuid], "bet", true),
            {:ok, response} <- build_response(name, "RS_OK", new_amount, body[:request_uuid]) do
         GenServer.reply(from, response)
       else
-        true ->
+        :transaction_found ->
           case get_user(body[:user]) do
             {:ok, name, amount, _currency} ->
-              {:ok, response} = build_response(name, "RS_ERROR_DUPLICATE_TRANSACTION", amount, body[:request_uuid])
+              {:ok, response} =
+                build_response(
+                  name,
+                  "RS_ERROR_DUPLICATE_TRANSACTION",
+                  amount,
+                  body[:request_uuid]
+                )
+
               GenServer.reply(from, response)
 
             _ ->
-              {:ok, response} = build_response("UKNOWN", "RS_ERROR_UNKNOWN", 0, body[:request_uuid])
+              {:ok, response} =
+                build_response("UKNOWN", "RS_ERROR_UNKNOWN", 0, body[:request_uuid])
+
               GenServer.reply(from, response)
           end
 
@@ -128,7 +171,10 @@ defmodule Challenge.Operator do
 
         {:ok, false} ->
           {:ok, name, amount, _currency} = get_user(body[:user])
-          {:ok, response} = build_response(name, "RS_ERROR_NOT_ENOUGH_MONEY", amount, body[:request_uuid])
+
+          {:ok, response} =
+            build_response(name, "RS_ERROR_NOT_ENOUGH_MONEY", amount, body[:request_uuid])
+
           GenServer.reply(from, response)
 
         _ ->
@@ -148,11 +194,6 @@ defmodule Challenge.Operator do
 
   def get_user(name) do
     Server.get_user(name)
-  end
-
-  @spec check_trans_id?(trans_id :: binary(), request_type :: String.t()) :: boolean() | :error
-  def check_trans_id?(trans_id, request_type) do
-    Server.transaction_id_exist?(trans_id, request_type)
   end
 
   @spec update_transactions_table(trans_id :: binary(), name :: String.t(), status :: boolean()) ::
@@ -178,13 +219,13 @@ defmodule Challenge.Operator do
      }}
   end
 
-  defp calculate_new_amount(amount, name,bet_win) do
+  defp calculate_new_amount(amount, name, bet_win) do
     case name do
       "bet" ->
         {:ok, amount - absolute_value(bet_win)}
+
       "win" ->
-        {:ok, amount + absolute_value(bet_win)
-      }
+        {:ok, amount + absolute_value(bet_win)}
     end
   end
 
@@ -202,5 +243,4 @@ defmodule Challenge.Operator do
   end
 
   :math
-
 end

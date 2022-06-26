@@ -49,5 +49,4 @@ defmodule Challenge do
     |> Task.async()
     |> Task.await(:infinity)
   end
-
 end

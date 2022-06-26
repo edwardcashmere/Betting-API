@@ -16,7 +16,6 @@ defmodule Challenge.Mnesia.Server do
     Mnesia.create_schema([Node.self()])
     Mnesia.start()
     send(self(), :create_tables)
-    Mnesia.wait_for_tables([Challenge.User,Challenge.Bet_Win], 5000)
 
     {:ok, %{}}
   end
@@ -75,18 +74,22 @@ defmodule Challenge.Mnesia.Server do
     end
   end
 
-  @spec transaction_id_exist?(trans_uuid :: binary(), name :: binary()) :: boolean() | :error
-  def transaction_id_exist?(trans_uuid, name) do
+  @spec get_transaction_id(trans_uuid :: binary(), name :: binary()) ::
+          :transaction_found | :transaction_does_not_exist | :error
+  def get_transaction_id(trans_uuid, name) do
     t_fn = fn -> Mnesia.match_object({Challenge.Bet_Win, trans_uuid, name, :_}) end
 
     case run_transaction(t_fn) do
-      {:ok, [{Challenge.Bet_Win, ^trans_uuid, ^name, _status}]} -> true
-      {:ok, []} -> false
+      {:ok, [{Challenge.Bet_Win, ^trans_uuid, ^name, _status}]} -> :transaction_found
+      {:ok, []} -> :transaction_does_not_exist
       {:error, _reason} -> :error
     end
   end
 
-  @spec get_all_users :: :no_users_found | :error | [{name :: String.t(), amount :: number(), currency :: String.t()}]
+  @spec get_all_users ::
+          :no_users_found
+          | :error
+          | [{name :: String.t(), amount :: number(), currency :: String.t()}]
   def get_all_users() do
     t_fn = fn -> Mnesia.match_object({Challenge.User, :_, :_, :_}) end
 
@@ -147,7 +150,7 @@ defmodule Challenge.Mnesia.Server do
   end
 
   defp add_table(name, attrs) do
-    case Mnesia.create_table(name, attrs)do
+    case Mnesia.create_table(name, attrs) do
       {:atomic, :ok} ->
         :ok
 
