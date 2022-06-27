@@ -7,6 +7,8 @@ defmodule ChallengeTest do
   alias Challenge.Mnesia.Server
   alias Challenge.Operator
 
+  @timeout 1000 * 60 * 60
+
   setup do
     pid = Challenge.start()
     Mnesia.clear_table(Challenge.User)
@@ -186,6 +188,42 @@ defmodule ChallengeTest do
            } = Challenge.bet(pid, bet)
   end
 
+  test "a bet function can handle many concurrent bet requests", %{server_pid: pid} do
+    number_of_requests = 10000
+
+    users =
+      1..number_of_requests
+      |> Enum.map(fn number -> generate_user_name(number) end)
+
+    :ok = Challenge.create_users(pid, users)
+
+    Process.sleep(100)
+
+    {time, :ok} =
+      :timer.tc(fn ->
+        tasks =
+          1..number_of_requests
+          |> Enum.map(fn number ->
+            Task.async(fn ->
+              Challenge.bet(
+                pid,
+                number |> generate_bet_data()
+              )
+            end)
+          end)
+
+        Task.await_many(tasks, @timeout)
+        :ok
+      end)
+
+    transactions_ids = Server.get_all_trans_ids_with_criteria("bet", true)
+    assert 10000 = length(transactions_ids)
+
+    IO.puts("""
+    Application can Handle 10,000 concurrent requests in #{time / 1000_000} seconds
+    """)
+  end
+
   # test win with valid payload
   # test win with valid payload -ve amount
   # test win with duplicate trans_id
@@ -324,6 +362,114 @@ defmodule ChallengeTest do
              currency: ^currency,
              balance: 0
            } = Challenge.win(pid, win)
+  end
+
+  test "a win function can handle many concurrent bet requests", %{server_pid: pid} do
+    number_of_requests = 10000
+
+    users =
+      1..number_of_requests
+      |> Enum.map(fn number -> generate_user_name(number) end)
+
+    :ok = Challenge.create_users(pid, users)
+
+    Process.sleep(10)
+
+    tasks_bet =
+      1..number_of_requests
+      |> Enum.map(fn number ->
+        Task.async(fn ->
+          Challenge.bet(
+            pid,
+            number |> generate_bet_data()
+          )
+        end)
+      end)
+
+    Task.await_many(tasks_bet, @timeout)
+
+    Process.sleep(10)
+
+    {time, :ok} =
+      :timer.tc(fn ->
+        tasks_win =
+          1..number_of_requests
+          |> Enum.map(fn number ->
+            Task.async(fn ->
+              Challenge.win(
+                pid,
+                number |> generate_win_data()
+              )
+            end)
+          end)
+
+        Task.await_many(tasks_win, @timeout)
+        :ok
+      end)
+
+    transactions_ids = Server.get_all_trans_ids_with_criteria("win", true)
+    assert length(transactions_ids) > 9990
+
+    IO.puts("""
+    Application can Handle 10000 concurrent requests in #{time / 1000_000} seconds
+    #{length(transactions_ids)}- number of requests passed
+    #{10000 - length(transactions_ids)}- number of requests failed
+    """)
+
+    # TODO number of requests failing is always less than ten not sure why ? needs further investigation
+  end
+
+  defp generate_win_data(number) do
+    %{
+      user: "john#{number}",
+      transaction_uuid: "16d2dcfe-b89e-11e7-854a-58404eea6d16#{number}",
+      supplier_transaction_id: "41ecc3ad-b181-4235-bf9d-acf0a7ad9730",
+      token: "55b7518e-b89e-11e7-81be-58404eea6d16",
+      supplier_user: "cg_45141",
+      round_closed: true,
+      round: "rNEMwgzJAOZ6eR3V",
+      reward_uuid: "a28f93f2-98c5-41f7-8fbb-967985acf8fe",
+      request_uuid: "583c985f-fee6-4c0e-bbf5-308aad6265af",
+      reference_transaction_uuid: "16d2dcfe-b89e-11e7-854a-58404eea6d168#{number}",
+      is_free: false,
+      is_aggregated: false,
+      game_code: "clt_dragonrising",
+      currency: "EUR",
+      bet: "zero",
+      amount: 110_000,
+      meta: %{
+        selection: "home_team",
+        odds: 2.5
+      }
+    }
+  end
+
+  defp generate_user_name(number) do
+    "john#{number}"
+  end
+
+  defp generate_bet_data(number) do
+    %{
+      user: "john#{number}",
+      transaction_uuid: "16d2dcfe-b89e-11e7-854a-58404eea6d168#{number}",
+      supplier_transaction_id: "41ecc3ad-b181-4235-bf9d-acf0a7ad9730",
+      token: "55b7518e-b89e-11e7-81be-58404eea6d16",
+      supplier_user: "cg_45141",
+      round_closed: true,
+      round: "rNEMwgzJAOZ6eR3V",
+      reward_uuid: "a28f93f2-98c5-41f7-8fbb-967985acf8fe",
+      request_uuid: "583c985f-fee6-4c0e-bbf5-308aad6265af",
+      is_free: false,
+      is_aggregated: false,
+      game_code: "clt_dragonrising",
+      currency: "USD",
+      bet: "zero",
+      amount: 100_000,
+      meta: %{
+        selection: "home_team",
+        odds: 2.5
+      }
+    }
   end
 
   defp test_bet_data(data_type) do

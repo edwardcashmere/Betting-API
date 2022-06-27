@@ -74,10 +74,10 @@ defmodule Challenge.Mnesia.Server do
     end
   end
 
-  @spec get_transaction_id(trans_uuid :: binary(), name :: binary()) ::
+  @spec get_transaction_id(trans_uuid :: binary(), name :: binary(), status :: boolean()) ::
           :transaction_found | :transaction_does_not_exist | :error
-  def get_transaction_id(trans_uuid, name) do
-    t_fn = fn -> Mnesia.match_object({Challenge.Bet_Win, trans_uuid, name, :_}) end
+  def get_transaction_id(trans_uuid, name, status) do
+    t_fn = fn -> Mnesia.match_object({Challenge.Bet_Win, trans_uuid, name, status}) end
 
     case run_transaction(t_fn) do
       {:ok, [{Challenge.Bet_Win, ^trans_uuid, ^name, _status}]} -> :transaction_found
@@ -124,9 +124,11 @@ defmodule Challenge.Mnesia.Server do
     end
   end
 
-  @spec get_all_trans_ids_with_criteria() :: [{binary(), String.t(), boolean()}]
-  def get_all_trans_ids_with_criteria() do
-    t_fn = fn -> Mnesia.match_object({Challenge.Bet_Win, :_, :_, :_}) end
+  @spec get_all_trans_ids_with_criteria(name :: any(), status :: any()) :: [
+          {binary(), String.t(), boolean()}
+        ]
+  def get_all_trans_ids_with_criteria(name \\ :_, status \\ :_) do
+    t_fn = fn -> Mnesia.match_object({Challenge.Bet_Win, :_, name, status}) end
 
     case run_transaction(t_fn) do
       {:ok, []} -> :no_transaction_ids_found
