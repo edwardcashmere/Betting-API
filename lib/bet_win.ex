@@ -38,7 +38,7 @@ defmodule Challenge.BetWin do
   def handle_info(:retry, %{retries: retries, from: from, body: body} = state) do
     if retries <= @retry_number do
       Process.send_after(self(), :process_request, @timeout)
-      retries = retries+1
+      retries = retries + 1
       {:noreply, %{state | retries: retries}}
     else
       {:ok, name, amount, _currency} = Server.get_user(body[:user])
@@ -154,7 +154,6 @@ defmodule Challenge.BetWin do
         GenServer.reply(from, response)
 
       _ ->
-
         send(self(), :retry)
     end
   end
