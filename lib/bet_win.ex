@@ -38,6 +38,8 @@ defmodule Challenge.BetWin do
   def handle_info(:retry, %{retries: retries, from: from, body: body} = state) do
     if retries <= @retry_number do
       Process.send_after(self(), :process_request, @timeout)
+      retries = retries+1
+      {:noreply, %{state | retries: retries}}
     else
       {:ok, name, amount, _currency} = Server.get_user(body[:user])
       {:ok, response} = build_response(name, "RS_ERROR_UNKNOWN", amount, body[:request_uuid])
