@@ -217,7 +217,7 @@ defmodule ChallengeTest do
       end)
 
     transactions_ids = Server.get_all_trans_ids_with_criteria("bet", true)
-    assert 10000 = length(transactions_ids)
+    assert 10000 == length(transactions_ids)
 
     IO.puts("""
     Application can Handle 10,000 concurrent requests in #{time / 1000_000} seconds
@@ -390,6 +390,9 @@ defmodule ChallengeTest do
 
     Process.sleep(10)
 
+    transactions_ids = Server.get_all_trans_ids_with_criteria("bet", true)
+    assert 10000 = length(transactions_ids)
+
     {time, :ok} =
       :timer.tc(fn ->
         tasks_win =
@@ -408,7 +411,7 @@ defmodule ChallengeTest do
       end)
 
     transactions_ids = Server.get_all_trans_ids_with_criteria("win", true)
-    assert length(transactions_ids) > 9990
+    assert length(transactions_ids) == 10000
 
     IO.puts("""
     Application can Handle 10000 concurrent requests in #{time / 1000_000} seconds

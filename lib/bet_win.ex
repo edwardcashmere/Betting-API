@@ -4,6 +4,8 @@ defmodule Challenge.BetWin do
   alias Challenge.Mnesia.Server
   alias Challenge.Operator
 
+  require Logger
+
   @retry_number 3
   @timeout 1000
 
@@ -150,6 +152,7 @@ defmodule Challenge.BetWin do
         GenServer.reply(from, response)
 
       _ ->
+
         send(self(), :retry)
     end
   end
