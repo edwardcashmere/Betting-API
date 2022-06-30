@@ -1,5 +1,5 @@
 defmodule ChallengeTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest Challenge
 
   alias :mnesia, as: Mnesia
@@ -32,7 +32,7 @@ defmodule ChallengeTest do
     users = ["Messi", "Lebron", "Cristiano", "Curry"]
 
     Challenge.create_users(pid, users)
-    Process.sleep(1)
+    :sys.get_state(pid)
     assert {:ok, "Messi", ^amount, ^currency} = Server.get_user("Messi")
     assert {:ok, "Lebron", ^amount, ^currency} = Server.get_user("Lebron")
     assert {:ok, "Cristiano", ^amount, ^currency} = Server.get_user("Cristiano")
@@ -55,7 +55,7 @@ defmodule ChallengeTest do
   } do
     users = ["Kobe", "Jordan"]
     Challenge.create_users(pid, users)
-    Process.sleep(1)
+    :sys.get_state(pid)
 
     Server.create_user("Jordan", 200_000)
     Server.create_user("Kobe", 200_000)
@@ -189,7 +189,7 @@ defmodule ChallengeTest do
   end
 
   test "a bet function can handle many concurrent bet requests", %{server_pid: pid} do
-    number_of_requests = 10000
+    number_of_requests = 20000
 
     users =
       1..number_of_requests
@@ -205,6 +205,8 @@ defmodule ChallengeTest do
           1..number_of_requests
           |> Enum.map(fn number ->
             Task.async(fn ->
+              pid = Challenge.start()
+
               Challenge.bet(
                 pid,
                 number |> generate_bet_data()
@@ -217,10 +219,10 @@ defmodule ChallengeTest do
       end)
 
     transactions_ids = Server.get_all_trans_ids_with_criteria("bet", true)
-    assert 10000 == length(transactions_ids)
+    assert 20000 == length(transactions_ids)
 
     IO.puts("""
-    Application can Handle 10,000 concurrent requests in #{time / 1000_000} seconds
+    Application can Handle #{number_of_requests} concurrent requests in #{time / 1000_000} seconds
     """)
   end
 
@@ -365,7 +367,7 @@ defmodule ChallengeTest do
   end
 
   test "a win function can handle many concurrent bet requests", %{server_pid: pid} do
-    number_of_requests = 10000
+    number_of_requests = 20000
 
     users =
       1..number_of_requests
@@ -379,6 +381,8 @@ defmodule ChallengeTest do
       1..number_of_requests
       |> Enum.map(fn number ->
         Task.async(fn ->
+          pid = Challenge.start()
+
           Challenge.bet(
             pid,
             number |> generate_bet_data()
@@ -391,7 +395,7 @@ defmodule ChallengeTest do
     Process.sleep(10)
 
     transactions_ids = Server.get_all_trans_ids_with_criteria("bet", true)
-    assert 10000 = length(transactions_ids)
+    assert 20000 = length(transactions_ids)
 
     {time, :ok} =
       :timer.tc(fn ->
@@ -399,6 +403,8 @@ defmodule ChallengeTest do
           1..number_of_requests
           |> Enum.map(fn number ->
             Task.async(fn ->
+              pid = Challenge.start()
+
               Challenge.win(
                 pid,
                 number |> generate_win_data()
@@ -411,12 +417,12 @@ defmodule ChallengeTest do
       end)
 
     transactions_ids = Server.get_all_trans_ids_with_criteria("win", true)
-    assert length(transactions_ids) == 10000
+    assert length(transactions_ids) == 20000
 
     IO.puts("""
     Application can Handle 10000 concurrent requests in #{time / 1000_000} seconds
     #{length(transactions_ids)}- number of requests passed
-    #{10000 - length(transactions_ids)}- number of requests failed
+    #{20000 - length(transactions_ids)}- number of requests failed
     """)
 
     # TODO number of requests failing is always less than ten not sure why ? needs further investigation

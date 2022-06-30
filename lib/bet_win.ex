@@ -30,6 +30,7 @@ defmodule Challenge.BetWin do
 
       "win" ->
         process_win(from, body)
+
         {:stop, :normal, state}
     end
   end

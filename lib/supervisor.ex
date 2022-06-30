@@ -9,7 +9,8 @@ defmodule Challenge.Supervisor do
   def init(:ok) do
     children = [
       {Challenge.Mnesia.Server, []},
-      {DynamicSupervisor, strategy: :one_for_one, name: Challenge.DynamicSupervisor}
+      {DynamicSupervisor, strategy: :one_for_one, name: Challenge.DynamicSupervisor},
+      {Task.Supervisor, name: Challenge.TaskSupervisor}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
